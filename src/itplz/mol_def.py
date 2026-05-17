@@ -6,33 +6,34 @@ class Loc:
 
     __slots__ = ("file", "line_num", "source")
 
+    def __init__(self, file, line_num, source):
+        self.file = file
+        self.line_num = line_num
+        self.source = source
+
 
 class Definition:
     """
     Instance of a definition of something.
     """
 
-    __slots__ = ("name", "file", "line_num", "source")
+    __slots__ = ("name", "loc")
 
-    def __init__(self, name: str, file: str, line_num: int, source: str):
+    def __init__(self, name: str, loc: Loc):
         self.name = name
-        self.file = file
-        self.line_num = line_num
-        self.source = source
+        self.loc = loc
 
     def key(self):
         return self.name
 
 
 class MolDef(Definition):
-    def __init__(self, name: str, file: str, line_num: int, source: str):
+    def __init__(self, name: str, loc: Loc):
         self.name = name
+        self.loc = loc
         self.atoms = RefIndex()
         self.bonds = RefIndex()
         self.angles = RefIndex()
-        self.file = file
-        self.line_num = line_num
-        self.source = source
 
     def get_atom_names(self):
         return [a.name for aas in self.atoms.values() for a in aas]
@@ -45,8 +46,9 @@ class MolDef(Definition):
 
     def charge(self):
         total = 0
-        for atom in self.atoms.values():
-            total += atom[0].charge
+        for atoms in self.atoms.values():
+            for a in atoms:
+                total += a.charge
         return total
 
 
@@ -89,31 +91,25 @@ class AngleRef(Definition):
 
 
 class Mol(Definition):
-    __slots__ = ("molecule", "count", "file", "line_num", "source")
+    __slots__ = ("molecule", "count", "loc")
 
-    def __init__(self, name: str, count: int, file: str, line_num: int, source: str):
+    def __init__(self, name: str, count: int, loc: Loc):
         self.name = name
         self.count = count
-        self.file = file
-        self.line_num = line_num
-        self.source = source
+        self.loc = loc
 
 
 class Atom(Definition):
-    __slots__ = ("id", "name", "charge", "file", "line_num", "source")
+    __slots__ = ("id", "name", "charge", "loc")
 
-    def __init__(
-        self, id: int, name: str, charge: float, file: str, line_num: int, source: str
-    ):
+    def __init__(self, id: int, name: str, charge: float, loc: Loc):
         self.id = id
         self.name = name
         self.charge = charge
-        self.file = file
-        self.line_num = line_num
-        self.source = source
+        self.loc = loc
 
     def key(self):
-        return (self.id, self.name)
+        return self.name
 
 
 class Index:
@@ -145,7 +141,10 @@ class DefIndex(Index):
 
 
 class RefIndex(Index):
-    """Store references to definitions. References may occur multiple times"""
+    """Store references to definitions. References may occur multiple times.
+
+    References do not need to have definitions. We check this elsewhere.
+    """
 
     def __init__(self):
         self._index = defaultdict(list)
@@ -219,7 +218,6 @@ class Definitions:
                         self.include_tree[filename].append(include_filename)
                         self.load_itp_file(include_filename, source)
                     except Exception as e:
-                        print(e)
                         self.failed_includes.append(include_filename)
 
 
@@ -242,6 +240,9 @@ class FileLoader:
         with open(filename, "r") as f:
             self.lines = f.readlines()
 
+    def loc(self):
+        return Loc(self.filename, self.line_num, self.source)
+
     def parse_moleculetype_atoms(self, mol_def):
         while True:
             line = self.next_line()
@@ -255,9 +256,7 @@ class FileLoader:
                     atom_id,
                     atom_name,
                     charge,
-                    self.filename,
-                    self.line_num,
-                    self.source,
+                    self.loc(),
                 )
             )
             mol_def.atoms.add(
@@ -265,18 +264,14 @@ class FileLoader:
                     atom_id,
                     atom_name,
                     charge,
-                    self.filename,
-                    self.line_num,
-                    self.source,
+                    self.loc(),
                 )
             )
             self.atoms += 1
 
     def parse_moleculetype(self):
         molecule_name = self.next_line().split()[0]
-        mol_def = self.defs.mol_defs.add(
-            MolDef(molecule_name, self.filename, self.line_num, self.source)
-        )
+        mol_def = self.defs.mol_defs.add(MolDef(molecule_name, self.loc()))
         self.mol_defs += 1
         while True:
             section = self.next_section()
@@ -303,12 +298,8 @@ class FileLoader:
                 return
             bond = line.split()
             if len(bond) == 3:
-                mol_def.bonds.add(
-                    BondRef(bond[2], self.filename, self.line_num, self.source)
-                )
-                self.defs.bonds.add(
-                    BondRef(bond[2], self.filename, self.line_num, self.source)
-                )
+                mol_def.bonds.add(BondRef(bond[2], self.loc()))
+                self.defs.bonds.add(BondRef(bond[2], self.loc()))
                 self.bonds += 1
 
     def parse_moleculetype_angles(self, mol_def):
@@ -318,13 +309,8 @@ class FileLoader:
                 return
             bond = line.split()
             if len(bond) == 4:
-                mol_def.angles.add(
-                    AngleRef(bond[3], self.filename, self.line_num, self.source)
-                )
-                self.defs.angles.add(
-                    AngleRef(bond[3], self.filename, self.line_num, self.source)
-                )
-                self.angles += 1
+                mol_def.angles.add(AngleRef(bond[3], self.loc()))
+                self.defs.angles.add(AngleRef(bond[3], self.loc()))
 
     def parse_atomtypes(self):
         while True:
@@ -333,9 +319,7 @@ class FileLoader:
                 return
             line = line.split()
             atom_name = line[0]
-            self.defs.atom_defs.add(
-                AtomDef(atom_name, self.filename, self.line_num, self.source)
-            )
+            self.defs.atom_defs.add(AtomDef(atom_name, self.loc()))
             self.atomtypes += 1
 
     def parse_bondtypes(self):
@@ -345,9 +329,7 @@ class FileLoader:
                 return
             line = line.split()
             atom_name = line[0]
-            self.defs.bond_types.add(
-                BondType(atom_name, self.filename, self.line_num, self.source)
-            )
+            self.defs.bond_types.add(BondType(atom_name, self.loc()))
             self.bondtypes += 1
 
     def parse_angletypes(self):
@@ -357,9 +339,7 @@ class FileLoader:
                 return
             line = line.split()
             atom_name = line[0]
-            self.defs.angle_types.add(
-                AngleType(atom_name, self.filename, self.line_num, self.source)
-            )
+            self.defs.angle_types.add(AngleType(atom_name, self.loc()))
             self.angletypes += 1
 
     def parse_molecule(self):
@@ -370,9 +350,7 @@ class FileLoader:
             line = line.split()
             mol_name = line[0]
             count = line[1]
-            self.defs.mols.add(
-                Mol(mol_name, int(count), self.filename, self.line_num, self.source)
-            )
+            self.defs.mols.add(Mol(mol_name, int(count), self.loc()))
             self.mols += 1
 
     def next_line(self, check=True):

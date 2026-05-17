@@ -1,3 +1,4 @@
+import os
 import sys
 
 
@@ -21,7 +22,7 @@ def run(topology, mdls, verbose=False):
             q = mol_def.charge()
             cnt = molecule.count
             eprint(
-                f"{mol_def.name:12} {q:>10} {cnt:>10} {cnt * q:>13} ; ({mol_def.source}){mol_def.file}:{mol_def.line_num}"
+                f"{mol_def.name:12} {q:>10} {cnt:>10} {cnt * q:>13} ; {os.path.normpath(mol_def.loc.file)}:{mol_def.loc.line_num}"
             )
             total += q * cnt
     if undefined:

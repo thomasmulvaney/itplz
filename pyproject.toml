@@ -19,7 +19,5 @@ itplz = { path = ".", editable = true }
 
 [tool.pixi.tasks]
 
-
-
 [project.scripts]
 itplz = "itplz.cli:main"
