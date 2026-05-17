@@ -27,9 +27,9 @@ class Definition:
 class MolDef(Definition):
     def __init__(self, name: str, file: str, line_num: int, source: str):
         self.name = name
-        self.atoms = Index()
-        self.bonds = Index()
-        self.angles = Index()
+        self.atoms = RefIndex()
+        self.bonds = RefIndex()
+        self.angles = RefIndex()
         self.file = file
         self.line_num = line_num
         self.source = source
@@ -117,14 +117,8 @@ class Atom(Definition):
 
 
 class Index:
-    """Store sets of types for lookup."""
-
-    def __init__(self):
-        self._index = defaultdict(list)
-
-    def add(self, item):
-        self._index[item.key()].append(item)
-        return item
+    def get(self, item):
+        return self._index.get(item)
 
     def keys(self):
         return self._index.keys()
@@ -132,28 +126,32 @@ class Index:
     def values(self):
         return self._index.values()
 
-    def get_all(self, item_name, source=None):
-        return self._index.get(item_name)
 
-    def get(self, item_name, source=None):
-        vals = self._index.get(item_name)
-        if vals is None:
-            return None
-        if source is not None:
-            vals = [v for v in vals if v.source == source]
-        if len(vals) == 1:
-            return vals[0]
-        # print("multiple with name", item_name)
-        return None
+class DefIndex(Index):
+    """Store definitions. Definition may only occur once."""
 
-    def check_uniqueness(self, prefer, index=None):
-        if index is None:
-            index = self._index
-        for idx in index:
-            if len(self._index[idx]) > 1:
-                print(f"Multiple definitions found for {idx}:")
-                for d in self._index[idx]:
-                    print(f"  ->({d.source}){d.file}:{d.line_num}")
+    def __init__(self):
+        self._index = {}
+
+    def add(self, item):
+        if self._index.get(item.key()):
+            f = self._index.get(item.key())
+            print(
+                "oops!", item.name, item.file, item.line_num, f.name, f.file, f.line_num
+            )
+        else:
+            self._index[item.key()] = item
+        return item
+
+
+class RefIndex(Index):
+    """Store references to definitions. References may occur multiple times"""
+
+    def __init__(self):
+        self._index = defaultdict(list)
+
+    def add(self, item):
+        self._index[item.key()].append(item)
 
 
 class Definitions:
@@ -162,14 +160,14 @@ class Definitions:
     """
 
     def __init__(self, verbose=False):
-        self.mol_defs = Index()
-        self.atom_defs = Index()
-        self.bond_types = Index()
-        self.angle_types = Index()
-        self.atoms = Index()
-        self.bonds = Index()
-        self.angles = Index()
-        self.mols = Index()
+        self.mol_defs = DefIndex()
+        self.atom_defs = DefIndex()
+        self.bond_types = DefIndex()
+        self.angle_types = DefIndex()
+        self.atoms = RefIndex()
+        self.bonds = RefIndex()
+        self.angles = RefIndex()
+        self.mols = RefIndex()
         self.include_tree = defaultdict(list)
         self.include_lines = {}
         self.failed_includes = []
