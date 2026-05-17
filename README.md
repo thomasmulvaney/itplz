@@ -48,7 +48,7 @@ $ itplz add-includes --top examples/1ake/system.top --directories examples/force
 
 Running check on this file, 
 ```
-$ itplz check --top examples/1ake/system.top 
+$ itplz check --top fixed.top 
 ✔  1/1 molecule types defined
 ✔  23/23 atom types defined, 23 in external files
 ✔  0/0 bond types defined
@@ -68,7 +68,7 @@ Total Charge: -4.0
 ```
 
 ```
-$ SYSTEM_CHARGE=$(itplz charge --top examples/1ake/systemtop)
+$ SYSTEM_CHARGE=$(itplz charge --top examples/1ake/system.top)
 $ echo $SYSTEM_CHARGE
 -4.0
 ```
