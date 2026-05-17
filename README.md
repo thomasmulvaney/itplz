@@ -39,17 +39,32 @@ Some definitions are from externally included files:
 Run `itplz add-includes --top examples/1ake/system.top --directories examples/forcefields  --out path/to/new.top` to create a complete topology file.
 ```
 
-Following the advice, we can create a new topology file with the correct includes.
+### `itplz add-includes`
+The `add-includes` command takes a topology, a list of ITP files or directories containing ITP files, and returns a new topology file
+with any missing includes added.
 ```
 $ itplz add-includes --top examples/1ake/system.top --directories examples/forcefields --out fixed.top
 ```
 
 Running check on this file, 
 ```
-$ itplz check --top examples/1ake/system.top --directories examples/forcefields
+$ itplz check --top examples/1ake/system.top 
 ✔  1/1 molecule types defined
 ✔  23/23 atom types defined, 23 in external files
 ✔  0/0 bond types defined
 ✔  0/0 angle types defined
 Topology appears fine
 ```
+
+### `itplz charge`
+Returns the charge of a system.
+```
+$ itplz charge --top examples/1ake/system.top 
+Molecule         Charge      Count   Tot. charge
+------------------------------------------------
+molecule_0         -4.0          1          -4.0 ; examples/1ake/molecule_0.itp:10
+Total Charge: -4.0
+-4.0
+
+```
+
