@@ -57,7 +57,7 @@ Topology appears fine
 ```
 
 ### `itplz charge`
-Returns the charge of a system.
+Returns the charge of a system. A table of charges for each molecule is printed to STDERR. The charge is printed to STDOUT.  This can be useful for downstream tools.
 ```
 $ itplz charge --top examples/1ake/system.top 
 Molecule         Charge      Count   Tot. charge
@@ -65,6 +65,10 @@ Molecule         Charge      Count   Tot. charge
 molecule_0         -4.0          1          -4.0 ; examples/1ake/molecule_0.itp:10
 Total Charge: -4.0
 -4.0
-
 ```
 
+```
+$ SYSTEM_CHARGE=$(itplz charge --top examples/1ake/systemtop)
+$ echo $SYSTEM_CHARGE
+-4.0
+```
