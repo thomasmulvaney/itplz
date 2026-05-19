@@ -1,4 +1,3 @@
-import os
 import glob
 import itplz.core
 import itplz.mol_def
@@ -54,16 +53,16 @@ def load_external(args):
     mdls = itplz.mol_def.Definitions(verbose=args.verbose)
     for d in args.directories:
         for filename in glob.glob(f"{d}/*.itp"):
-            mdls.load_itp_file(filename, "ext")
+            mdls.load_itp_file(filename)
 
     for f in args.files:
-        mdls.load_itp_file(f, "ext")
+        mdls.load_itp_file(f)
     return mdls
 
 
 def load_topology(args):
     topology = itplz.mol_def.Definitions(verbose=args.verbose)
-    topology.load_itp_file(args.top, "top")
+    topology.load_itp_file(args.top)
     return topology
 
 

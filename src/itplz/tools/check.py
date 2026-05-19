@@ -16,7 +16,7 @@ def check_type(type_map, name):
         print(f"✖  {t}/{t + u} {name} types defined")
 
     if len(type_map.undefined) > 0:
-        print(f"   Undefined:")
+        print("   Undefined:")
         for m in type_map.undefined[0:5]:
             print(f"     {m:<20}")
         if len(type_map.undefined) > 5:
@@ -30,11 +30,12 @@ def run(top, extra_mdls, args, verbose=False):
     check_type(def_map.bond_types, "bond")
     check_type(def_map.angle_types, "angle")
 
-
     if def_map.has_undefined():
         print()
         print("Some definitions are missing.")
-        print("Try adding additional files ITP using `--directories` or `--files` options")
+        print(
+            "Try adding additional files ITP using `--directories` or `--files` options"
+        )
         sys.exit(2)
 
     if def_map.has_external():

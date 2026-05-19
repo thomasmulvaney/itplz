@@ -12,17 +12,17 @@ def run(topology, mdls, verbose=False):
     eprint("-" * 48)
     undefined = False
     for molecule in topology.get_molecules():
-        mol_def = topology.mol_defs.get(molecule.name)
-        if mol_def is None:
-            mol_def = mdls.mol_defs.get(molecule.name)
-        if mol_def is None:
+        mol_type = topology.mol_types.get(molecule.name)
+        if mol_type is None:
+            mol_type = mdls.mol_types.get(molecule.name)
+        if mol_type is None:
             undefined = True
             eprint(f"{molecule.name:12} {'-':>10} {'-':>10} {'-':>13} ; undefined!")
         else:
-            q = mol_def.charge()
+            q = mol_type.charge()
             cnt = molecule.count
             eprint(
-                f"{mol_def.name:12} {q:>10} {cnt:>10} {cnt * q:>13} ; {os.path.normpath(mol_def.loc.file)}:{mol_def.loc.line_num}"
+                f"{mol_type.name:12} {q:>10} {cnt:>10} {cnt * q:>13} ; {os.path.normpath(mol_type.loc.file)}:{mol_type.loc.line_num}"
             )
             total += q * cnt
     if undefined:

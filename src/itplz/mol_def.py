@@ -91,6 +91,7 @@ class AngleRef(Definition):
 
 class Mol(Definition):
     """A molecule, whose name references a MolType."""
+
     __slots__ = ("molecule", "count", "loc")
 
     def __init__(self, name: str, count: int, loc: Loc):
@@ -133,7 +134,13 @@ class DefIndex(Index):
         if self._index.get(item.key()):
             f = self._index.get(item.key())
             print(
-                "already defined!", item.name, item.file, item.line_num, f.name, f.file, f.line_num
+                "already defined!",
+                item.name,
+                item.file,
+                item.line_num,
+                f.name,
+                f.file,
+                f.line_num,
             )
         else:
             self._index[item.key()] = item
@@ -225,9 +232,8 @@ class Definitions:
                         self.include_lines[filename] = idx
                         self.include_tree[filename].append(include_filename)
                         self.load_itp_file(include_filename)
-                    except Exception as e:
+                    except Exception:
                         self.failed_includes.append(include_filename)
-
 
 
 class FileLoader:
@@ -250,7 +256,6 @@ class FileLoader:
 
     def loc(self):
         return Loc(self.filename, self.line_num)
-
 
     def parse_moleculetype_atoms(self, mol_type):
         while True:
@@ -297,61 +302,45 @@ class FileLoader:
             line = self.next_line()
             if line is not None:
                 yield (line, self.loc())
+            else:
+                return
 
     def parse_moleculetype_bonds(self, mol_type):
-        while True:
-            line = self.next_line()
-            if line is None:
-                return
+        for line, loc in self.iter_lines():
             bond = line.split()
             if len(bond) == 3:
-                mol_type.bonds.add(BondRef(bond[2], self.loc()))
+                mol_type.bonds.add(BondRef(bond[2], loc))
                 self.bonds += 1
 
     def parse_moleculetype_angles(self, mol_type):
-        while True:
-            line = self.next_line()
-            if line is None:
-                return
+        for line, loc in self.iter_lines():
             bond = line.split()
             if len(bond) == 4:
-                mol_type.angles.add(AngleRef(bond[3], self.loc()))
+                mol_type.angles.add(AngleRef(bond[3], loc))
 
     def parse_atomtypes(self):
-        while True:
-            line = self.next_line()
-            if line is None:
-                return
+        for line, loc in self.iter_lines():
             line = line.split()
             atom_name = line[0]
-            self.defs.atom_types.add(AtomType(atom_name, self.loc()))
+            self.defs.atom_types.add(AtomType(atom_name, loc))
             self.atomtypes += 1
 
     def parse_bondtypes(self):
-        while True:
-            line = self.next_line()
-            if line is None:
-                return
+        for line, loc in self.iter_lines():
             line = line.split()
             atom_name = line[0]
-            self.defs.bond_types.add(BondType(atom_name, self.loc()))
+            self.defs.bond_types.add(BondType(atom_name, loc))
             self.bondtypes += 1
 
     def parse_angletypes(self):
-        while True:
-            line = self.next_line()
-            if line is None:
-                return
+        for line, loc in self.iter_lines():
             line = line.split()
             atom_name = line[0]
-            self.defs.angle_types.add(AngleType(atom_name, self.loc()))
+            self.defs.angle_types.add(AngleType(atom_name, loc))
             self.angletypes += 1
 
     def parse_molecule(self):
-        while True:
-            line = self.next_line()
-            if line is None:
-                return
+        for line, loc in self.iter_lines():
             line = line.split()
             mol_name = line[0]
             count = line[1]
@@ -359,6 +348,7 @@ class FileLoader:
             self.mols += 1
 
     def next_line(self, check=True):
+        """Reads lines in a section. At the end of a section returns None"""
         while self.line_num < len(self.lines):
             line = self.lines[self.line_num]
             line = line.strip()
@@ -392,7 +382,6 @@ class FileLoader:
     def load_sections(self):
         if self.verbose:
             print("Loading", self.filename)
-        curr_section = None
         with open(self.filename, "r") as f:
             self.lines = f.readlines()
             self.line_num = 0
