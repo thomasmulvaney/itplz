@@ -4,12 +4,11 @@ from collections import defaultdict
 class Loc:
     """A location of a definition"""
 
-    __slots__ = ("file", "line_num", "source")
+    __slots__ = ("file", "line_num")
 
-    def __init__(self, file, line_num, source):
+    def __init__(self, file, line_num):
         self.file = file
         self.line_num = line_num
-        self.source = source
 
 
 class Definition:
@@ -27,7 +26,7 @@ class Definition:
         return self.name
 
 
-class MolDef(Definition):
+class MolType(Definition):
     def __init__(self, name: str, loc: Loc):
         self.name = name
         self.loc = loc
@@ -52,7 +51,7 @@ class MolDef(Definition):
         return total
 
 
-class AtomDef(Definition):
+class AtomType(Definition):
     pass
 
 
@@ -69,9 +68,9 @@ class BondRef(Definition):
 
     Looks like:
 
-       int int string
+       int int ref
 
-    Where string is the reference to a bond type.
+    We just store the ref for now.
     """
 
     pass
@@ -82,15 +81,16 @@ class AngleRef(Definition):
 
     Looks like:
 
-       int int int string
+       int int int ref
 
-    Where string is the reference to a angle type.
+    We just store the ref for now.
     """
 
     pass
 
 
 class Mol(Definition):
+    """A molecule, whose name references a MolType."""
     __slots__ = ("molecule", "count", "loc")
 
     def __init__(self, name: str, count: int, loc: Loc):
@@ -133,7 +133,7 @@ class DefIndex(Index):
         if self._index.get(item.key()):
             f = self._index.get(item.key())
             print(
-                "oops!", item.name, item.file, item.line_num, f.name, f.file, f.line_num
+                "already defined!", item.name, item.file, item.line_num, f.name, f.file, f.line_num
             )
         else:
             self._index[item.key()] = item
@@ -159,19 +159,28 @@ class Definitions:
     """
 
     def __init__(self, verbose=False):
-        self.mol_defs = DefIndex()
-        self.atom_defs = DefIndex()
+        self.mol_types = DefIndex()
+        self.atom_types = DefIndex()
         self.bond_types = DefIndex()
         self.angle_types = DefIndex()
-        self.atoms = RefIndex()
-        self.bonds = RefIndex()
-        self.angles = RefIndex()
         self.mols = RefIndex()
         self.include_tree = defaultdict(list)
         self.include_lines = {}
         self.failed_includes = []
         self.loaded = set()
         self.verbose = verbose
+
+    def add_mol_type(self, obj):
+        return self.mol_types.add(obj)
+
+    def add_atom_type(self, obj):
+        self.atom_types.add(obj)
+
+    def add_bond_type(self, obj):
+        self.bond_types.add(obj)
+
+    def add_angle_type(self, obj):
+        self.angle_types.add(obj)
 
     def get_molecules(self):
         """Get all instances of molecules. This essentially returns every occurence."""
@@ -192,17 +201,16 @@ class Definitions:
         """Get all atom names"""
         return set(a.name for aas in self.angles.values() for a in aas)
 
-    def load_itp_file(self, filename, source):
-        """Load a file and all its dependencies. Use 'source' to track where original
-        data came from, for example an actual topology file or manual addition"""
+    def load_itp_file(self, filename):
+        """Load a file and all its dependencies."""
         if filename in self.loaded:
             return
         self.loaded.add(filename)
-        self.load_includes(filename, source)
-        fl = FileLoader(self, filename, source, self.verbose)
+        self.load_includes(filename)
+        fl = FileLoader(self, filename, self.verbose)
         fl.load_sections()
 
-    def load_includes(self, filename, source):
+    def load_includes(self, filename):
         import os
 
         dirname = os.path.dirname(filename)
@@ -216,17 +224,18 @@ class Definitions:
                     try:
                         self.include_lines[filename] = idx
                         self.include_tree[filename].append(include_filename)
-                        self.load_itp_file(include_filename, source)
+                        self.load_itp_file(include_filename)
                     except Exception as e:
                         self.failed_includes.append(include_filename)
 
 
+
 class FileLoader:
-    def __init__(self, defs, filename, source, verbose=False):
+    def __init__(self, defs, filename, verbose=False):
         self.defs = defs
         self.filename = filename
         self.line_num = 0
-        self.mol_defs = 0
+        self.mol_types = 0
         self.atoms = 0
         self.bonds = 0
         self.mols = 0
@@ -234,16 +243,16 @@ class FileLoader:
         self.atomtypes = 0
         self.bondtypes = 0
         self.angletypes = 0
-        self.source = source
         self.verbose = verbose
 
         with open(filename, "r") as f:
             self.lines = f.readlines()
 
     def loc(self):
-        return Loc(self.filename, self.line_num, self.source)
+        return Loc(self.filename, self.line_num)
 
-    def parse_moleculetype_atoms(self, mol_def):
+
+    def parse_moleculetype_atoms(self, mol_type):
         while True:
             line = self.next_line()
             if line is None:
@@ -251,15 +260,7 @@ class FileLoader:
             atom_id = line.split()[0]
             atom_name = line.split()[1]
             charge = float(line.split()[6])
-            self.defs.atoms.add(
-                Atom(
-                    atom_id,
-                    atom_name,
-                    charge,
-                    self.loc(),
-                )
-            )
-            mol_def.atoms.add(
+            mol_type.atoms.add(
                 Atom(
                     atom_id,
                     atom_name,
@@ -271,18 +272,18 @@ class FileLoader:
 
     def parse_moleculetype(self):
         molecule_name = self.next_line().split()[0]
-        mol_def = self.defs.mol_defs.add(MolDef(molecule_name, self.loc()))
-        self.mol_defs += 1
+        mol_type = self.defs.add_mol_type(MolType(molecule_name, self.loc()))
+        self.mol_types += 1
         while True:
             section = self.next_section()
             if section == "[atoms]":
-                self.parse_moleculetype_atoms(mol_def)
+                self.parse_moleculetype_atoms(mol_type)
 
             if section == "[bonds]":
-                self.parse_moleculetype_bonds(mol_def)
+                self.parse_moleculetype_bonds(mol_type)
 
             if section == "[angles]":
-                self.parse_moleculetype_angles(mol_def)
+                self.parse_moleculetype_angles(mol_type)
 
             if section == "[moleculetype]":
                 self.rewind()
@@ -291,26 +292,30 @@ class FileLoader:
             if section is None:
                 return None
 
-    def parse_moleculetype_bonds(self, mol_def):
+    def iter_lines(self):
+        while True:
+            line = self.next_line()
+            if line is not None:
+                yield (line, self.loc())
+
+    def parse_moleculetype_bonds(self, mol_type):
         while True:
             line = self.next_line()
             if line is None:
                 return
             bond = line.split()
             if len(bond) == 3:
-                mol_def.bonds.add(BondRef(bond[2], self.loc()))
-                self.defs.bonds.add(BondRef(bond[2], self.loc()))
+                mol_type.bonds.add(BondRef(bond[2], self.loc()))
                 self.bonds += 1
 
-    def parse_moleculetype_angles(self, mol_def):
+    def parse_moleculetype_angles(self, mol_type):
         while True:
             line = self.next_line()
             if line is None:
                 return
             bond = line.split()
             if len(bond) == 4:
-                mol_def.angles.add(AngleRef(bond[3], self.loc()))
-                self.defs.angles.add(AngleRef(bond[3], self.loc()))
+                mol_type.angles.add(AngleRef(bond[3], self.loc()))
 
     def parse_atomtypes(self):
         while True:
@@ -319,7 +324,7 @@ class FileLoader:
                 return
             line = line.split()
             atom_name = line[0]
-            self.defs.atom_defs.add(AtomDef(atom_name, self.loc()))
+            self.defs.atom_types.add(AtomType(atom_name, self.loc()))
             self.atomtypes += 1
 
     def parse_bondtypes(self):
@@ -407,7 +412,7 @@ class FileLoader:
             if section == "[angletypes]":
                 self.parse_angletypes()
         if self.verbose:
-            print("  molecule types:", self.mol_defs)
+            print("  molecule types:", self.mol_types)
             print("  atoms :", self.atoms)
             print("  atomtypes :", self.atomtypes)
             print("  bondtypes :", self.bondtypes)
