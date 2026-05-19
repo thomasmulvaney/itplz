@@ -12,12 +12,15 @@ requires = ["hatchling"]
 
 [tool.pixi.workspace]
 channels = ["conda-forge"]
-platforms = ["osx-arm64"]
+platforms = ["osx-arm64", "linux-64"]
 
 [tool.pixi.pypi-dependencies]
 itplz = { path = ".", editable = true }
 
 [tool.pixi.tasks]
+
+[tool.pixi.target.linux-64.dependencies]
+clang = ">=22.1.5,<23"
 
 [project.scripts]
 itplz = "itplz.cli:main"
